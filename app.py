@@ -4,9 +4,10 @@ import numpy as np
 import requests
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
+from yahoo_fin import stock_info
 
 # Alpha Vantage API Key (replace with your own)
-API_KEY = "YOUR_API_KEY"  # Get your API key from https://www.alphavantage.co/support/#api-key
+API_KEY = "MJS5WX9E2P6WF5UZ"  # Get your API key from https://www.alphavantage.co/support/#api-key
 
 # Function to get stock symbol based on company name with multiple suggestions
 def get_stock_symbol_suggestions(company_name):
@@ -40,6 +41,41 @@ def get_stock_data(ticker, start_date, end_date):
         stock_data = stock_data[(stock_data.index >= pd.to_datetime(start_date)) & (stock_data.index <= pd.to_datetime(end_date))]
         return stock_data
     return None
+
+# Function to fetch stock news from Alpha Vantage (with error handling)
+@st.cache_data
+def get_stock_news_alpha_vantage(ticker):
+    url = f"https://www.alphavantage.co/query?function=NEWS_SENTIMENT&symbol={ticker}&apikey={API_KEY}"
+    response = requests.get(url)
+    data = response.json()
+    
+    news = []
+    if "feed" in data:
+        for article in data["feed"]:
+            news.append({
+                "title": article.get("title", "No title available"),
+                "link": article.get("url", ""),
+                "published_at": article.get("published_at", "Unknown date"),  # Handle missing date
+                "summary": article.get("summary", "No summary available"),
+                "image_url": article.get("image_url", None)  # Handle missing image URL
+            })
+    return news
+
+# Function to fetch stock news from Yahoo Finance (with images)
+@st.cache_data
+def get_stock_news_yahoo(ticker):
+    news = stock_info.get_news(ticker)
+    
+    news_articles = []
+    for article in news:
+        news_articles.append({
+            "title": article["title"],
+            "link": article["link"],
+            "published_at": article.get("date", "Unknown date"),  # Handle missing date
+            "summary": article["summary"],
+            "image_url": article.get("image", None)
+        })
+    return news_articles
 
 # Streamlit UI
 st.title("📈 Real-Time Stock Market Dashboard")
@@ -114,6 +150,21 @@ if st.sidebar.button("Search"):
             ax.legend()
             st.pyplot(fig)
 
+            # Fetch and display news from Alpha Vantage
+            st.subheader(f"Latest News for {company_name} ({stock_symbol}) from Alpha Vantage")
+            alpha_vantage_news = get_stock_news_alpha_vantage(stock_symbol)
+            
+            if alpha_vantage_news:
+                for article in alpha_vantage_news:
+                    st.write(f"### [{article['title']}]({article['link']})")
+                    st.write(f"**Published At:** {article['published_at']}")
+                    st.write(f"**Summary:** {article['summary']}")
+                    if article["image_url"]:
+                        st.image(article["image_url"], width=150)
+                    st.write("---")
+            else:
+                st.write("No news available from Alpha Vantage.")
+            
             # Download option for CSV file
             st.sidebar.subheader("Download Data")
             csv_data = stock_data.to_csv().encode('utf-8')
