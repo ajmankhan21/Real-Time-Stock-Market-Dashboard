@@ -1,36 +1,18 @@
 import streamlit as st
 import pandas as pd
 import numpy as np
-import yfinance as yf
+import requests
 import matplotlib.pyplot as plt
 from datetime import datetime, timedelta
 
-def get_stock_data(ticker, start_date, end_date):
-    stock = yf.download(ticker, start=start_date, end=end_date)
-    return stock
+# Alpha Vantage API Key (replace with your own)
+API_KEY = "YOUR_API_KEY"  # Get your API key from https://www.alphavantage.co/support/#api-key
 
-st.title("📈 Real-Time Stock Market Dashboard")  
-
-# Sidebar for user inputs
-st.sidebar.header("User Input")
-
-# Stock Symbol Input
-ticker = st.sidebar.text_input("Enter Stock Symbol (e.g., AAPL, TSLA, GOOGL)", "AAPL")
-
-# Date Range Selection
-start_date = (datetime.today() - timedelta(days=365)).strftime('%Y-%m-%d')
-
-start = st.sidebar.date_input("Start Date", datetime.strptime(start_date, "%Y-%m-%d"))
-end = st.sidebar.date_input("End Date", datetime.strptime(end_date, "%Y-%m-%d"))
-
-# Fetch Stock Data
-if st.sidebar.button("Get Data"):
-    stock_data = get_stock_data(ticker, start, end)
-    st.write(f"### Stock Data for {ticker}")
-    st.dataframe(stock_data.tail())  # Show last few rows
-
-if 'stock_data' in locals():
-    st.subheader("Stock Price Chart")
+# Function to get stock symbol based on company name with multiple suggestions
+def get_stock_symbol_suggestions(company_name):
+    url = f"https://www.alphavantage.co/query?function=SYMBOL_SEARCH&keywords={company_name}&apikey={API_KEY}"
+    response = requests.get(url)
+    data = response.json()
     
     suggestions = []
     if "bestMatches" in data and len(data["bestMatches"]) > 0:
